@@ -1,8 +1,9 @@
 package com.surya.employee_management.controller;
 
+import com.surya.employee_management.dto.AuthResponse;
+import com.surya.employee_management.dto.LoginRequest;
 import com.surya.employee_management.dto.RegisterRequest;
 import com.surya.employee_management.dto.RegisterResponse;
-import com.surya.employee_management.dto.LoginRequest;
 import com.surya.employee_management.service.AuthService;
 import com.surya.employee_management.service.JwtService;
 import com.surya.employee_management.service.UserService;
@@ -36,9 +37,10 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<String> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         Authentication authentication = authService.authenticate(request.getUsername(), request.getPassword());
         String token = jwtService.generateToken(authentication);
-        return ResponseEntity.ok(token);
+        long expiresInSeconds = jwtService.getExpirationSeconds();
+        return ResponseEntity.ok(AuthResponse.of(token, expiresInSeconds));
     }
 }

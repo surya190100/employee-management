@@ -4,6 +4,7 @@ import com.surya.employee_management.dto.RegisterResponse;
 import com.surya.employee_management.entity.User;
 import com.surya.employee_management.entity.Role;
 import com.surya.employee_management.entity.UserRole;
+import com.surya.employee_management.exception.UsernameAlreadyExistsException;
 import com.surya.employee_management.repository.RoleRepository;
 import com.surya.employee_management.repository.UserRepository;
 import com.surya.employee_management.repository.UserRoleRepository;
@@ -29,6 +30,10 @@ public class UserService {
 
     @Transactional
     public RegisterResponse registerUser(String username, String password) {
+        if (userRepository.existsByUsername(username)) {
+            throw new UsernameAlreadyExistsException(username);
+        }
+
         User user = new User();
         user.setUsername(username);
         user.setPassword(passwordEncoder.encode(password));
