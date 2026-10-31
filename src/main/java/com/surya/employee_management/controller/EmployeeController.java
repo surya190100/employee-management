@@ -2,6 +2,7 @@ package com.surya.employee_management.controller;
 
 import com.surya.employee_management.dto.CreateEmployeeRequest;
 import com.surya.employee_management.dto.EmployeeResponse;
+import com.surya.employee_management.dto.PageResponse;
 import com.surya.employee_management.dto.UpdateEmployeeRequest;
 import com.surya.employee_management.service.EmployeeService;
 import jakarta.validation.Valid;
@@ -13,11 +14,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/employees")
@@ -30,8 +31,16 @@ public class EmployeeController {
     }
 
     @GetMapping
-    public List<EmployeeResponse> findAll() {
-        return employeeService.findAll();
+    public PageResponse<EmployeeResponse> findAll(
+            @RequestParam(value = "name", required = false) String name,
+            @RequestParam(value = "department", required = false) String department,
+            @RequestParam(value = "designation", required = false) String designation,
+            @RequestParam(value = "active", required = false) Boolean active,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "10") int size,
+            @RequestParam(value = "sortBy", defaultValue = "employeeId") String sortBy,
+            @RequestParam(value = "direction", defaultValue = "asc") String direction) {
+        return employeeService.search(name, department, designation, active, page, size, sortBy, direction);
     }
 
     @GetMapping("/{id}")

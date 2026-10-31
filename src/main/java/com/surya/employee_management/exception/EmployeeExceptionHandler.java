@@ -85,6 +85,13 @@ public class EmployeeExceptionHandler {
                 .body(ApiErrorResponse.of(HttpStatus.BAD_REQUEST, "Malformed JSON request body.", request.getRequestURI()));
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiErrorResponse> handleIllegalArgument(
+            IllegalArgumentException exception, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiErrorResponse.of(HttpStatus.BAD_REQUEST, exception.getMessage(), request.getRequestURI()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleGenericException(
             Exception exception, HttpServletRequest request) {

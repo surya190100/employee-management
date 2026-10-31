@@ -2,6 +2,7 @@ package com.surya.employee_management.service;
 
 import com.surya.employee_management.dto.CreateEmployeeRequest;
 import com.surya.employee_management.dto.EmployeeResponse;
+import com.surya.employee_management.dto.PageResponse;
 import com.surya.employee_management.dto.UpdateEmployeeRequest;
 import com.surya.employee_management.entity.Employee;
 import com.surya.employee_management.exception.EmployeeEmailAlreadyExistsException;
@@ -12,6 +13,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -46,6 +52,41 @@ class EmployeeServiceImplTests {
         assertEquals(1, employees.size());
         assertEquals(1L, employees.getFirst().employeeId());
         assertEquals("jane@example.com", employees.getFirst().email());
+    }
+
+    @Test
+    void searchReturnsPageResponse() {
+        Employee employee = employee(1L, "jane@example.com");
+        Page<Employee> page = new PageImpl<>(List.of(employee), PageRequest.of(0, 10), 1);
+        when(employeeRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(page);
+
+        PageResponse<EmployeeResponse> response = employeeService.search(
+                "Jane", "Engineering", "Developer", true, 0, 10, "employeeId", "asc");
+
+        assertEquals(1, response.content().size());
+        assertEquals(0, response.pageNumber());
+        assertEquals(10, response.pageSize());
+        assertEquals(1, response.totalElements());
+        assertEquals(1, response.totalPages());
+        assertTrue(response.last());
+    }
+
+    @Test
+    void searchRejectsNegativePage() {
+        assertThrows(IllegalArgumentException.class, () ->
+                employeeService.search(null, null, null, null, -1, 10, "employeeId", "asc"));
+    }
+
+    @Test
+    void searchRejectsZeroSize() {
+        assertThrows(IllegalArgumentException.class, () ->
+                employeeService.search(null, null, null, null, 0, 0, "employeeId", "asc"));
+    }
+
+    @Test
+    void searchRejectsUnsupportedSortField() {
+        assertThrows(IllegalArgumentException.class, () ->
+                employeeService.search(null, null, null, null, 0, 10, "unknownField", "asc"));
     }
 
     @Test

@@ -98,3 +98,4 @@ class CustomUserDetailsServiceTests {
                 userDetailsService.loadUserByUsername("non-existent-user-12345"));
     }
 }
+

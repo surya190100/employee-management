@@ -74,7 +74,9 @@ class EmployeeControllerTests {
         mockMvc.perform(get("/api/employees")
                         .header("Authorization", bearer(userToken)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray());
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.pageNumber").value(0))
+                .andExpect(jsonPath("$.pageSize").value(10));
 
         String body = validEmployeeJson("user-created@example.com");
         mockMvc.perform(post("/api/employees")
@@ -143,6 +145,87 @@ class EmployeeControllerTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.employeeId").value(employee.getEmployeeId()))
                 .andExpect(jsonPath("$.email").value("read@example.com"));
+    }
+
+    @Test
+    void paginationAndFilteringWorkWithCustomParameters() throws Exception {
+        employeeRepository.deleteAll();
+
+        for (int i = 1; i <= 15; i++) {
+            Employee emp = new Employee();
+            emp.setFirstName("Name" + i);
+            emp.setLastName("Surname" + i);
+            emp.setEmail("employee" + i + "@example.com");
+            emp.setPhoneNumber("555-01" + String.format("%02d", i));
+            emp.setDepartment(i % 2 == 0 ? "IT" : "HR");
+            emp.setDesignation(i % 2 == 0 ? "Developer" : "Recruiter");
+            emp.setSalary(new BigDecimal("50000.00"));
+            emp.setDateOfJoining(LocalDate.of(2023, 1, i));
+            emp.setActive(i <= 10);
+            employeeRepository.save(emp);
+        }
+
+        // Default pagination: page 0, size 10
+        mockMvc.perform(get("/api/employees")
+                        .header("Authorization", bearer(userToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(10))
+                .andExpect(jsonPath("$.pageNumber").value(0))
+                .andExpect(jsonPath("$.pageSize").value(10))
+                .andExpect(jsonPath("$.totalElements").value(15))
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.last").value(false));
+
+        // Second page: page 1, size 10
+        mockMvc.perform(get("/api/employees?page=1&size=10")
+                        .header("Authorization", bearer(userToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(5))
+                .andExpect(jsonPath("$.pageNumber").value(1))
+                .andExpect(jsonPath("$.last").value(true));
+
+        // Filter by department = "IT" (7 even numbers between 1 and 15: 2,4,6,8,10,12,14)
+        mockMvc.perform(get("/api/employees?department=IT")
+                        .header("Authorization", bearer(userToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(7));
+
+        // Filter by name (case-insensitive search "name1")
+        mockMvc.perform(get("/api/employees?name=name1")
+                        .header("Authorization", bearer(userToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(7)); // Name1, Name10, Name11, Name12, Name13, Name14, Name15
+
+        // Filter by active status
+        mockMvc.perform(get("/api/employees?active=true")
+                        .header("Authorization", bearer(userToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(10));
+
+        // Combined filter: department=IT and active=true (2, 4, 6, 8, 10 -> 5 employees)
+        mockMvc.perform(get("/api/employees?department=IT&active=true")
+                        .header("Authorization", bearer(userToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(5));
+    }
+
+    @Test
+    void rejectsUnsupportedSortField() throws Exception {
+        mockMvc.perform(get("/api/employees?sortBy=unsupportedColumn")
+                        .header("Authorization", bearer(userToken)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("Invalid sortBy field")));
+    }
+
+    @Test
+    void rejectsInvalidPageNumber() throws Exception {
+        mockMvc.perform(get("/api/employees?page=-1")
+                        .header("Authorization", bearer(userToken)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value("Page index must not be less than zero."));
     }
 
     private String tokenFor(String username, String roleName) {
