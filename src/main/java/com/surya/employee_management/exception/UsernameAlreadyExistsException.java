@@ -6,3 +6,4 @@ public class UsernameAlreadyExistsException extends RuntimeException {
         super("A user with username '" + username + "' already exists.");
     }
 }
+

@@ -11,3 +11,4 @@ public record AuthResponse(
         return new AuthResponse(accessToken, TOKEN_TYPE_BEARER, expiresInSeconds);
     }
 }
+

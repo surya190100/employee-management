@@ -29,7 +29,7 @@ public class CustomUserDetailsService implements UserDetailsService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
 
-        var authorities = userRoleRepository.findAllByUser_UserId(user.getUserId())
+        var authorities = userRoleRepository.findAllWithRoleByUserId(user.getUserId())
                 .stream()
                 .map(userRole -> {
                     String roleName = userRole.getRole().getRoleName();
