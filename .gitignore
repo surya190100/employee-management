@@ -41,6 +41,7 @@ build/
 *.pem
 *.key
 *.p12
+!.env.example
 
 ### Logs & Diagnostics ###
 *.log
@@ -49,4 +50,3 @@ build/
 ### OS Generated ###
 .DS_Store
 Thumbs.db
-

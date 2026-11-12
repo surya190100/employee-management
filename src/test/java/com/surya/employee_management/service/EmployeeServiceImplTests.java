@@ -10,6 +10,7 @@ import com.surya.employee_management.exception.EmployeeNotFoundException;
 import com.surya.employee_management.repository.EmployeeRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -58,7 +59,8 @@ class EmployeeServiceImplTests {
     void searchReturnsPageResponse() {
         Employee employee = employee(1L, "jane@example.com");
         Page<Employee> page = new PageImpl<>(List.of(employee), PageRequest.of(0, 10), 1);
-        when(employeeRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(page);
+        when(employeeRepository.findAll(
+                ArgumentMatchers.<Specification<Employee>>any(), any(Pageable.class))).thenReturn(page);
 
         PageResponse<EmployeeResponse> response = employeeService.search(
                 "Jane", "Engineering", "Developer", true, 0, 10, "employeeId", "asc");
@@ -81,6 +83,12 @@ class EmployeeServiceImplTests {
     void searchRejectsZeroSize() {
         assertThrows(IllegalArgumentException.class, () ->
                 employeeService.search(null, null, null, null, 0, 0, "employeeId", "asc"));
+    }
+
+    @Test
+    void searchRejectsPageSizeAboveMaximum() {
+        assertThrows(IllegalArgumentException.class, () ->
+                employeeService.search(null, null, null, null, 0, 101, "employeeId", "asc"));
     }
 
     @Test

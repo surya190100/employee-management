@@ -5,6 +5,9 @@ import com.surya.employee_management.dto.EmployeeResponse;
 import com.surya.employee_management.dto.PageResponse;
 import com.surya.employee_management.dto.UpdateEmployeeRequest;
 import com.surya.employee_management.service.EmployeeService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -22,6 +25,8 @@ import java.net.URI;
 
 @RestController
 @RequestMapping("/api/employees")
+@Tag(name = "Employee Management", description = "CRUD operations for employees. Requires JWT Bearer authentication.")
+@SecurityRequirement(name = "bearerAuth")
 public class EmployeeController {
 
     private final EmployeeService employeeService;
@@ -31,6 +36,10 @@ public class EmployeeController {
     }
 
     @GetMapping
+    @Operation(
+            summary = "Search and list employees",
+            description = "Returns a paginated list of employees. Supports filtering by name, department, designation, and active status."
+    )
     public PageResponse<EmployeeResponse> findAll(
             @RequestParam(value = "name", required = false) String name,
             @RequestParam(value = "department", required = false) String department,
@@ -44,11 +53,13 @@ public class EmployeeController {
     }
 
     @GetMapping("/{id}")
+    @Operation(summary = "Get employee by ID")
     public EmployeeResponse findById(@PathVariable("id") Long employeeId) {
         return employeeService.findById(employeeId);
     }
 
     @PostMapping
+    @Operation(summary = "Create a new employee")
     public ResponseEntity<EmployeeResponse> create(@Valid @RequestBody CreateEmployeeRequest request) {
         EmployeeResponse created = employeeService.create(request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
@@ -59,6 +70,7 @@ public class EmployeeController {
     }
 
     @PutMapping("/{id}")
+    @Operation(summary = "Update an existing employee")
     public EmployeeResponse update(
             @PathVariable("id") Long employeeId,
             @Valid @RequestBody UpdateEmployeeRequest request) {
@@ -66,6 +78,7 @@ public class EmployeeController {
     }
 
     @DeleteMapping("/{id}")
+    @Operation(summary = "Delete an employee by ID")
     public ResponseEntity<Void> delete(@PathVariable("id") Long employeeId) {
         employeeService.delete(employeeId);
         return ResponseEntity.noContent().build();

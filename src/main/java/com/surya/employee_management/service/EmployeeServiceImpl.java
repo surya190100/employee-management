@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 @Service
@@ -27,6 +28,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     private static final Set<String> SUPPORTED_SORT_FIELDS = Set.of(
             "employeeId", "firstName", "lastName", "department", "designation", "dateOfJoining"
     );
+    private static final int MAX_PAGE_SIZE = 100;
 
     private final EmployeeRepository employeeRepository;
 
@@ -60,7 +62,9 @@ public class EmployeeServiceImpl implements EmployeeService {
         if (size < 1) {
             throw new IllegalArgumentException("Page size must be greater than zero.");
         }
-        int clampedSize = Math.min(size, 100);
+        if (size > MAX_PAGE_SIZE) {
+            throw new IllegalArgumentException("Page size must not exceed " + MAX_PAGE_SIZE + ".");
+        }
 
         String effectiveSortBy = (sortBy == null || sortBy.isBlank()) ? "employeeId" : sortBy;
         if (!SUPPORTED_SORT_FIELDS.contains(effectiveSortBy)) {
@@ -77,13 +81,13 @@ public class EmployeeServiceImpl implements EmployeeService {
             throw new IllegalArgumentException("Invalid sort direction: '" + direction + "'. Supported directions are: asc, desc.");
         }
 
-        Pageable pageable = PageRequest.of(page, clampedSize, Sort.by(sortDirection, effectiveSortBy));
+        Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, effectiveSortBy));
 
         Specification<Employee> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
             if (name != null && !name.trim().isBlank()) {
-                String pattern = "%" + name.trim().toLowerCase() + "%";
+                String pattern = "%" + name.trim().toLowerCase(Locale.ROOT) + "%";
                 predicates.add(cb.or(
                         cb.like(cb.lower(root.get("firstName")), pattern),
                         cb.like(cb.lower(root.get("lastName")), pattern)
@@ -91,11 +95,11 @@ public class EmployeeServiceImpl implements EmployeeService {
             }
 
             if (department != null && !department.trim().isBlank()) {
-                predicates.add(cb.equal(cb.lower(root.get("department")), department.trim().toLowerCase()));
+                predicates.add(cb.equal(cb.lower(root.get("department")), department.trim().toLowerCase(Locale.ROOT)));
             }
 
             if (designation != null && !designation.trim().isBlank()) {
-                predicates.add(cb.equal(cb.lower(root.get("designation")), designation.trim().toLowerCase()));
+                predicates.add(cb.equal(cb.lower(root.get("designation")), designation.trim().toLowerCase(Locale.ROOT)));
             }
 
             if (active != null) {

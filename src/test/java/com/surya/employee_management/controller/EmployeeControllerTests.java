@@ -10,9 +10,13 @@ import com.surya.employee_management.repository.RoleRepository;
 import com.surya.employee_management.repository.UserRepository;
 import com.surya.employee_management.repository.UserRoleRepository;
 import com.surya.employee_management.service.JwtService;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
@@ -21,8 +25,11 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.crypto.SecretKey;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Date;
 import java.util.List;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -59,6 +66,9 @@ class EmployeeControllerTests {
 
     @Autowired
     private JwtService jwtService;
+
+    @Value("${jwt.secret}")
+    private String testJwtSecret;
 
     private String userToken;
     private String adminToken;
@@ -134,6 +144,72 @@ class EmployeeControllerTests {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.path").value("/api/employees/99999"));
+    }
+
+    @Test
+    void unauthenticatedAndInvalidBearerRequestsAreRejected() throws Exception {
+        mockMvc.perform(get("/api/employees"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.path").value("/api/employees"));
+
+        mockMvc.perform(get("/user/test"))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/api/employees")
+                        .header("Authorization", "Bearer invalid-test-token"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("The bearer token is invalid or expired."));
+
+        mockMvc.perform(get("/api/employees")
+                        .header("Authorization", bearer(expiredToken())))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("The bearer token is invalid or expired."));
+    }
+
+    @Test
+    void swaggerUiAndOpenApiSpecArePublicAndDescribeBearerAuthorization() throws Exception {
+        mockMvc.perform(get("/swagger-ui/index.html"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.type").value("http"))
+                .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"))
+                .andExpect(jsonPath("$.paths['/api/employees'].get.security[0].bearerAuth").exists())
+                .andExpect(jsonPath("$.paths['/auth/register'].post.security").doesNotExist())
+                .andExpect(jsonPath("$.paths['/auth/login'].post.security").doesNotExist());
+    }
+
+    @Test
+    void userAndAdminSecurityTestEndpointsEnforceRoles() throws Exception {
+        mockMvc.perform(get("/user/test")
+                        .header("Authorization", bearer(userToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value("employee-user"));
+
+        mockMvc.perform(get("/admin/test")
+                        .header("Authorization", bearer(userToken)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403));
+
+        mockMvc.perform(get("/admin/test")
+                        .header("Authorization", bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value("employee-admin"));
+    }
+
+    @Test
+    void duplicateEmployeeEmailReturnsConflict() throws Exception {
+        employeeRepository.save(employee("duplicate@example.com"));
+
+        mockMvc.perform(post("/api/employees")
+                        .header("Authorization", bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validEmployeeJson("duplicate@example.com")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.error").value("Conflict"));
     }
 
     @Test
@@ -228,6 +304,21 @@ class EmployeeControllerTests {
                 .andExpect(jsonPath("$.message").value("Page index must not be less than zero."));
     }
 
+    @Test
+    void rejectsNonNumericPageAndPageSizeAboveMaximum() throws Exception {
+        mockMvc.perform(get("/api/employees?page=not-a-number")
+                        .header("Authorization", bearer(userToken)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value("Invalid value for parameter 'page'."));
+
+        mockMvc.perform(get("/api/employees?size=101")
+                        .header("Authorization", bearer(userToken)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value("Page size must not exceed 100."));
+    }
+
     private String tokenFor(String username, String roleName) {
         User user = new User();
         user.setUsername(username);
@@ -242,6 +333,17 @@ class EmployeeControllerTests {
 
         return jwtService.generateToken(
                 new UsernamePasswordAuthenticationToken(username, null, List.of()));
+    }
+
+    private String expiredToken() {
+        SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(testJwtSecret));
+        Instant now = Instant.now();
+        return Jwts.builder()
+                .subject("employee-user")
+                .issuedAt(Date.from(now.minusSeconds(120)))
+                .expiration(Date.from(now.minusSeconds(60)))
+                .signWith(key, Jwts.SIG.HS256)
+                .compact();
     }
 
     private static String bearer(String token) {

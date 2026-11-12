@@ -12,20 +12,13 @@
 	<artifactId>employee-management</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>employee-management</name>
-	<description/>
-	<url/>
+	<description>RESTful employee management API with JWT authentication and role-based authorization.</description>
 	<licenses>
 		<license/>
 	</licenses>
 	<developers>
 		<developer/>
 	</developers>
-	<scm>
-		<connection/>
-		<developerConnection/>
-		<tag/>
-		<url/>
-	</scm>
 	<properties>
 		<java.version>21</java.version>
 		<jjwt.version>0.13.0</jjwt.version>
